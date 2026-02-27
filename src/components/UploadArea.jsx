@@ -1,5 +1,5 @@
-import { AlertCircle, FileText, UploadCloud, X } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { AlertCircle, FileText, GripVertical, UploadCloud, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 const PERFORMANCE_WARNING_LIMIT_BYTES = 50 * 1024 * 1024
 
@@ -46,6 +46,23 @@ function getFileId(file) {
   return `${file.name}-${file.size}-${file.lastModified}`
 }
 
+function getFileExtension(fileName) {
+  const extension = fileName.split('.').pop()
+  return extension ? extension.toUpperCase() : 'FILE'
+}
+
+function isImageFile(file) {
+  const normalizedType = (file.type || '').toLowerCase()
+  if (normalizedType.startsWith('image/')) {
+    return true
+  }
+
+  const normalizedName = file.name.toLowerCase()
+  return ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp'].some((extension) =>
+    normalizedName.endsWith(extension),
+  )
+}
+
 function formatFileSize(sizeInBytes) {
   if (sizeInBytes === 0) {
     return '0 B'
@@ -72,8 +89,12 @@ function UploadArea({
 }) {
   const inputRef = useRef(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [draggedFileId, setDraggedFileId] = useState('')
+  const [dragOverFileId, setDragOverFileId] = useState('')
   const [internalFiles, setInternalFiles] = useState([])
   const [internalError, setInternalError] = useState('')
+  const [previewUrls, setPreviewUrls] = useState({})
+  const previewUrlsRef = useRef({})
 
   const activeFiles = Array.isArray(files) ? files : internalFiles
   const activeError = typeof errorMessage === 'string' ? errorMessage : internalError
@@ -87,6 +108,7 @@ function UploadArea({
           .map((file) => file.name)
           .join(', ')}`
       : ''
+  const canReorder = multiple && activeFiles.length > 1
 
   const setFiles = (nextFiles) => {
     if (!Array.isArray(files)) {
@@ -154,6 +176,45 @@ function UploadArea({
     setError(validationErrors.join('. '))
   }
 
+  useEffect(() => {
+    setPreviewUrls((currentUrls) => {
+      const nextUrls = { ...currentUrls }
+      const activeIds = new Set()
+      let hasChanges = false
+
+      activeFiles.forEach((file) => {
+        const fileId = getFileId(file)
+        activeIds.add(fileId)
+
+        if (isImageFile(file) && !nextUrls[fileId]) {
+          nextUrls[fileId] = URL.createObjectURL(file)
+          hasChanges = true
+        }
+      })
+
+      Object.entries(nextUrls).forEach(([fileId, url]) => {
+        if (!activeIds.has(fileId)) {
+          URL.revokeObjectURL(url)
+          delete nextUrls[fileId]
+          hasChanges = true
+        }
+      })
+
+      if (hasChanges) {
+        previewUrlsRef.current = nextUrls
+      }
+
+      return hasChanges ? nextUrls : currentUrls
+    })
+  }, [activeFiles])
+
+  useEffect(
+    () => () => {
+      Object.values(previewUrlsRef.current).forEach((url) => URL.revokeObjectURL(url))
+    },
+    [],
+  )
+
   const handleInputChange = (event) => {
     addFiles(event.target.files)
     event.target.value = ''
@@ -166,7 +227,32 @@ function UploadArea({
   }
 
   const removeFile = (fileToRemove) => {
-    const nextFiles = activeFiles.filter((file) => getFileId(file) !== getFileId(fileToRemove))
+    const removedFileId = getFileId(fileToRemove)
+    const nextFiles = activeFiles.filter((file) => getFileId(file) !== removedFileId)
+    setFiles(nextFiles)
+    if (draggedFileId === removedFileId) {
+      setDraggedFileId('')
+    }
+    if (dragOverFileId === removedFileId) {
+      setDragOverFileId('')
+    }
+  }
+
+  const moveFile = (sourceFileId, targetFileId) => {
+    if (!canReorder || !sourceFileId || !targetFileId || sourceFileId === targetFileId) {
+      return
+    }
+
+    const sourceIndex = activeFiles.findIndex((file) => getFileId(file) === sourceFileId)
+    const targetIndex = activeFiles.findIndex((file) => getFileId(file) === targetFileId)
+
+    if (sourceIndex < 0 || targetIndex < 0) {
+      return
+    }
+
+    const nextFiles = [...activeFiles]
+    const [movedFile] = nextFiles.splice(sourceIndex, 1)
+    nextFiles.splice(targetIndex, 0, movedFile)
     setFiles(nextFiles)
   }
 
@@ -228,27 +314,102 @@ function UploadArea({
       ) : null}
 
       {activeFiles.length > 0 ? (
-        <ul className="mt-4 space-y-2">
-          {activeFiles.map((file) => (
-            <li
-              key={getFileId(file)}
-              className="flex items-center justify-between gap-3 rounded-lg border border-borderColor bg-white px-3 py-2.5"
-            >
-              <div className="flex min-w-0 items-center gap-2">
-                <FileText className="h-4 w-4 shrink-0 text-[#f27f50]" />
-                <div className="min-w-0">
-                  <p className="truncate text-sm text-textPrimary">{file.name}</p>
-                  <p className="text-xs text-textSecondary">{formatFileSize(file.size)}</p>
-                </div>
-              </div>
+        <>
+          {canReorder ? (
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-[#f27f50]">
+              Drag cards to rearrange sequence.
+            </p>
+          ) : null}
+          <ul className={`${canReorder ? 'mt-2' : 'mt-4'} grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3`}>
+            {activeFiles.map((file, index) => {
+              const fileId = getFileId(file)
+              const previewUrl = previewUrls[fileId]
+              const hasPreview = Boolean(previewUrl)
 
-              <button type="button" onClick={() => removeFile(file)} className="secondary-action gap-1">
-                <X className="h-3.5 w-3.5" />
-                Remove
-              </button>
-            </li>
-          ))}
-        </ul>
+              return (
+                <li
+                  key={fileId}
+                  draggable={canReorder}
+                  onDragStart={(event) => {
+                    if (!canReorder) {
+                      return
+                    }
+
+                    event.dataTransfer.effectAllowed = 'move'
+                    event.dataTransfer.setData('text/plain', fileId)
+                    setDraggedFileId(fileId)
+                  }}
+                  onDragOver={(event) => {
+                    if (!canReorder) {
+                      return
+                    }
+
+                    event.preventDefault()
+                    event.dataTransfer.dropEffect = 'move'
+                    if (dragOverFileId !== fileId) {
+                      setDragOverFileId(fileId)
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dragOverFileId === fileId) {
+                      setDragOverFileId('')
+                    }
+                  }}
+                  onDrop={(event) => {
+                    if (!canReorder) {
+                      return
+                    }
+
+                    event.preventDefault()
+                    const droppedFileId = event.dataTransfer.getData('text/plain') || draggedFileId
+                    moveFile(droppedFileId, fileId)
+                    setDraggedFileId('')
+                    setDragOverFileId('')
+                  }}
+                  onDragEnd={() => {
+                    setDraggedFileId('')
+                    setDragOverFileId('')
+                  }}
+                  className={`rounded-xl border bg-white p-3 transition-all duration-200 ${
+                    draggedFileId === fileId
+                      ? 'border-[#f27f50] shadow-[0_12px_24px_rgba(242,127,80,0.2)]'
+                      : 'border-borderColor'
+                  } ${dragOverFileId === fileId ? 'ring-2 ring-[#f27f50]/35' : ''}`}
+                >
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      {canReorder ? <GripVertical className="h-4 w-4 text-textSecondary" /> : null}
+                      <span className="rounded-full bg-[#f8f9fc] px-2 py-0.5 text-xs font-semibold text-textPrimary">
+                        #{index + 1}
+                      </span>
+                    </div>
+
+                    <button type="button" onClick={() => removeFile(file)} className="secondary-action gap-1">
+                      <X className="h-3.5 w-3.5" />
+                      Remove
+                    </button>
+                  </div>
+
+                  <div className="overflow-hidden rounded-lg border border-borderColor bg-[#f8f9fc]">
+                    {hasPreview ? (
+                      <img src={previewUrl} alt={file.name} className="h-32 w-full object-cover" />
+                    ) : (
+                      <div className="flex h-32 flex-col items-center justify-center gap-2 px-3 text-center">
+                        <FileText className="h-6 w-6 text-[#f27f50]" />
+                        <p className="text-xs font-semibold tracking-wide text-textSecondary">{getFileExtension(file.name)}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-2 min-w-0">
+                    <p className="truncate text-sm font-semibold text-textPrimary">{file.name}</p>
+                    <p className="text-xs text-textSecondary">{formatFileSize(file.size)}</p>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </>
       ) : null}
     </section>
   )

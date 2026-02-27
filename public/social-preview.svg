@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="PDFly social preview">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="100%" stop-color="#1E293B" />
+    </linearGradient>
+    <linearGradient id="brand" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7C3AED" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="24" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)" />
+  <circle cx="1020" cy="80" r="170" fill="#06B6D4" opacity="0.15" filter="url(#glow)" />
+  <circle cx="180" cy="580" r="210" fill="#7C3AED" opacity="0.18" filter="url(#glow)" />
+
+  <rect x="90" y="82" width="1020" height="466" rx="28" fill="rgba(15,23,42,0.68)" stroke="#334155" />
+
+  <text x="150" y="220" fill="url(#brand)" font-family="Segoe UI, Arial, sans-serif" font-size="86" font-weight="700">
+    PDFly
+  </text>
+  <text x="150" y="292" fill="#F8FAFC" font-family="Segoe UI, Arial, sans-serif" font-size="42" font-weight="600">
+    Free Online PDF Toolkit
+  </text>
+  <text x="150" y="358" fill="#94A3B8" font-family="Segoe UI, Arial, sans-serif" font-size="30">
+    Merge, split, rotate, compress, and convert PDFs.
+  </text>
+  <text x="150" y="406" fill="#94A3B8" font-family="Segoe UI, Arial, sans-serif" font-size="30">
+    100% Privacy - All processing happens in your browser.
+  </text>
+
+  <rect x="150" y="452" width="352" height="62" rx="12" fill="url(#brand)" />
+  <text x="176" y="493" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="700">
+    Your All-in-One PDF Toolkit
+  </text>
+</svg>
